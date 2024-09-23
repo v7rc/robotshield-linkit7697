@@ -242,7 +242,7 @@ void processRCString(String command) {
     return;
   }
 
-  Serial.println(command);
+  // Serial.println(command);
 
 
   if (command.indexOf("SRV") > -1 || command.indexOf("SS4") > -1  ) {  // 表示伺服馬達操作;
@@ -446,23 +446,32 @@ void processRCString(String command) {
 
     }
   } else if(command.indexOf("SS8") > -1) {
-    // Serial.println("接收到第二組伺服馬達命令;");
 
+    // Serial.println("接收到第二組伺服馬達命令;");
     int i = 3;
-    int servoIndex = 4;
+    int servoIndex = 0;
 
     while (i < commandLength - 1) {     // 解碼;
 
-      if (i + 3 < commandLength) {
+      if (i + 1 < commandLength) {
 
-        String singleCommand = command.substring(i, i + 2);
+        // String singleCommand = command.substring(i, i + 2);
+        char singleChar[2];
+        singleChar[0] = command.charAt(i);
+        singleChar[1] = command.charAt(i + 1);
 
-        // Serial.println(singleCommand);
+        byte data[1];
+
+        hexCharacterStringToBytes(data, singleChar);
+        int value = data[0];
+        int pwmValue = map(value, 0, 200, 1000, 2000);
+
+        // Serial.println(pwmValue);
 
         if (servoIndex < numOfServo) {
 
-          receiveServoValue[servoIndex] = singleCommand.toInt();
-
+          // receiveServoValue[servoIndex] = singleCommand.toInt();
+          receiveServoValue[servoIndex] = pwmValue;
           
            if (receiveServoValue[servoIndex] != oldServValue[servoIndex]) {
 
@@ -470,9 +479,12 @@ void processRCString(String command) {
               if(receiveServoValue[servoIndex] < SERVO_DEFAULT_MIN_VALUE) receiveServoValue[servoIndex] = SERVO_DEFAULT_MIN_VALUE;
               oldServValue[servoIndex] = receiveServoValue[servoIndex];
 
-               int pwmValue = map(receiveServoValue[servoIndex], 0, 99, 544, 2400);
+              //  int pwmValue = map(receiveServoValue[servoIndex], 0, 99, 544, 2400);
+
+              
+
                // robotServo[servoIndex].write(thisAngle);
-               robotServo[servoIndex].writeMicroseconds(pwmValue);
+              robotServo[servoIndex].writeMicroseconds(pwmValue);
            }
           
           servoIndex ++;
@@ -650,4 +662,78 @@ void processDCMotor(int pwmValue, int dcMotor[]) {
     digitalWrite(dcMotor[0], HIGH);
     analogWrite(dcMotor[1], power);
   }
+}
+
+void hexCharacterStringToBytes(byte *byteArray, const char *hexString)
+{
+  bool oddLength = strlen(hexString) & 1;
+
+  byte currentByte = 0;
+  byte byteIndex = 0;
+
+  for (byte charIndex = 0; charIndex < strlen(hexString); charIndex++)
+  {
+    bool oddCharIndex = charIndex & 1;
+
+    if (oddLength)
+    {
+      // If the length is odd
+      if (oddCharIndex)
+      {
+        // odd characters go in high nibble
+        currentByte = nibble(hexString[charIndex]) << 4;
+      }
+      else
+      {
+        // Even characters go into low nibble
+        currentByte |= nibble(hexString[charIndex]);
+        byteArray[byteIndex++] = currentByte;
+        currentByte = 0;
+      }
+    }
+    else
+    {
+      // If the length is even
+      if (!oddCharIndex)
+      {
+        // Odd characters go into the high nibble
+        currentByte = nibble(hexString[charIndex]) << 4;
+      }
+      else
+      {
+        // Odd characters go into low nibble
+        currentByte |= nibble(hexString[charIndex]);
+        byteArray[byteIndex++] = currentByte;
+        currentByte = 0;
+      }
+    }
+  }
+}
+
+void dumpByteArray(const byte * byteArray, const byte arraySize)
+{
+
+for (int i = 0; i < arraySize; i++)
+{
+  Serial.print("0x");
+  if (byteArray[i] < 0x10)
+    Serial.print("0");
+  Serial.print(byteArray[i], HEX);
+  Serial.print(", ");
+}
+Serial.println();
+}
+
+byte nibble(char c)
+{
+  if (c >= '0' && c <= '9')
+    return c - '0';
+
+  if (c >= 'a' && c <= 'f')
+    return c - 'a' + 10;
+
+  if (c >= 'A' && c <= 'F')
+    return c - 'A' + 10;
+
+  return 0;  // Not a valid hexadecimal character
 }
